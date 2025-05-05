@@ -5,16 +5,17 @@ import { toast } from 'react-toastify'
 interface MergeButtonProps {
   files: { id: string; file: File }[]
   onMergeComplete: () => void
+  t: (key: string, options?: { [key: string]: string }) => string
 }
 
-export default function MergeButton({ files, onMergeComplete }: MergeButtonProps) {
+export default function MergeButton({ files, onMergeComplete, t }: MergeButtonProps) {
   const [isMerging, setIsMerging] = useState(false)
   const [progress, setProgress] = useState(0)
   const [currentFile, setCurrentFile] = useState('')
 
   const mergePDFs = useCallback(async () => {
     if (files.length === 0) {
-      toast.error('병합할 PDF 파일을 선택해주세요')
+      toast.error(t('errors.noFiles'))
       return
     }
 
@@ -62,17 +63,17 @@ export default function MergeButton({ files, onMergeComplete }: MergeButtonProps
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
 
-      toast.success('PDF 병합이 완료되었습니다!')
+      toast.success(t('merge.success'))
       onMergeComplete()
     } catch (error) {
       console.error('PDF 병합 중 오류 발생:', error)
-      toast.error('PDF 병합 중 오류가 발생했습니다')
+      toast.error(t('merge.error'))
     } finally {
       setIsMerging(false)
       setProgress(0)
       setCurrentFile('')
     }
-  }, [files, onMergeComplete])
+  }, [files, onMergeComplete, t])
 
   return (
     <div className="mt-8">
@@ -80,7 +81,7 @@ export default function MergeButton({ files, onMergeComplete }: MergeButtonProps
         <div className="mb-4">
           <div className="flex justify-between mb-1">
             <span className="text-sm font-medium text-gray-700">
-              {currentFile ? `처리 중: ${currentFile}` : '병합 중...'}
+              {currentFile ? t('merge.currentFile', { fileName: currentFile }) : t('merge.processing')}
             </span>
             <span className="text-sm font-medium text-gray-700">{Math.round(progress)}%</span>
           </div>
@@ -101,7 +102,7 @@ export default function MergeButton({ files, onMergeComplete }: MergeButtonProps
             : 'bg-blue-600 hover:bg-blue-700'
           }`}
       >
-        {isMerging ? '병합 중...' : 'PDF 병합하기'}
+        {isMerging ? t('merge.processing') : t('merge.button')}
       </button>
     </div>
   )

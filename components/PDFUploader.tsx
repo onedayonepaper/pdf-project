@@ -1,45 +1,54 @@
-import { useCallback, useState } from 'react'
-import { useDropzone, FileRejection } from 'react-dropzone'
+import { useCallback, useEffect, useState } from 'react'
+import { useDropzone } from 'react-dropzone'
 import { toast } from 'react-toastify'
+import { FileRejection } from 'react-dropzone'
 
 interface PDFUploaderProps {
   onFilesSelected: (files: File[]) => void
+  t: (key: string) => string
 }
 
-export default function PDFUploader({ onFilesSelected }: PDFUploaderProps) {
-  const [isDragging, setIsDragging] = useState(false)
+export default function PDFUploader({ onFilesSelected, t }: PDFUploaderProps) {
+  const [mounted, setMounted] = useState(false)
+  const [key, setKey] = useState(0) // Add key for forcing re-render
+
+  useEffect(() => {
+    setMounted(true)
+    return () => setMounted(false)
+  }, [])
+
+  // Force re-render when translation function changes
+  useEffect(() => {
+    setKey(prev => prev + 1)
+  }, [t])
 
   const onDrop = useCallback((acceptedFiles: File[], fileRejections: FileRejection[]) => {
-    setIsDragging(false)
+    if (!mounted) return
 
-    // 거절된 파일에 대한 상세 오류 메시지
-    if (fileRejections.length > 0) {
-      const errors = fileRejections.map(({ file, errors }) => {
-        const errorMessages = errors.map(error => {
-          if (error.code === 'file-too-large') {
-            return `파일 크기가 20MB를 초과합니다 (${(file.size / (1024 * 1024)).toFixed(2)}MB)`
-          }
-          if (error.code === 'file-invalid-type') {
-            return 'PDF 파일만 업로드 가능합니다'
-          }
-          return error.message
-        })
-        return `${file.name}: ${errorMessages.join(', ')}`
+    // 거부된 파일 처리
+    fileRejections.forEach(({ file, errors }) => {
+      errors.forEach(error => {
+        if (error.code === 'file-too-large') {
+          toast.error(t('errors.fileTooLarge'))
+        } else if (error.code === 'file-invalid-type') {
+          toast.error(t('errors.invalidType'))
+        } else {
+          toast.error(error.message)
+        }
       })
-      toast.error(errors.join('\n'))
-    }
+    })
 
     // PDF 파일만 필터링
     const pdfFiles = acceptedFiles.filter(file => file.type === 'application/pdf')
     
-    // 파일 개수 제한 검사
+    // 최대 10개 파일 제한
     if (pdfFiles.length > 10) {
-      toast.error('최대 10개의 PDF 파일만 업로드 가능합니다')
+      toast.error(t('errors.tooManyFiles'))
       return
     }
 
     onFilesSelected(pdfFiles)
-  }, [onFilesSelected])
+  }, [onFilesSelected, t, mounted])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -47,32 +56,28 @@ export default function PDFUploader({ onFilesSelected }: PDFUploaderProps) {
       'application/pdf': ['.pdf']
     },
     maxSize: 20 * 1024 * 1024, // 20MB
-    maxFiles: 10,
-    onDragEnter: () => setIsDragging(true),
-    onDragLeave: () => setIsDragging(false)
+    maxFiles: 10
   })
+
+  if (!mounted) return null
 
   return (
     <div
+      key={key} // Add key to force re-render
       {...getRootProps()}
-      role="button"
-      tabIndex={0}
-      aria-label="PDF 파일 업로드 영역"
-      className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
+      className={`p-8 border-2 border-dashed rounded-lg text-center cursor-pointer
         ${isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'}
-        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+        transition-colors duration-200`}
     >
-      <input {...getInputProps()} aria-label="PDF 파일 선택" />
+      <input {...getInputProps()} />
       <div className="space-y-2">
-        <p className="text-lg font-medium">
-          {isDragActive ? 'PDF 파일을 여기에 놓으세요' : 'PDF 파일을 드래그하거나 클릭하여 선택하세요'}
-        </p>
-        <p className="text-sm text-gray-500">
-          최대 10개의 PDF 파일, 각 파일 최대 20MB
-        </p>
-        <p className="text-xs text-gray-400">
-          지원 형식: PDF (.pdf)
-        </p>
+        <p className="text-lg font-medium">{t('upload.drag')}</p>
+        <p className="text-sm text-gray-500">{t('upload.click')}</p>
+        <div className="text-xs text-gray-400 space-y-1">
+          <p>{t('upload.maxSize')}</p>
+          <p>{t('upload.maxFiles')}</p>
+          <p>{t('upload.supported')}</p>
+        </div>
       </div>
     </div>
   )

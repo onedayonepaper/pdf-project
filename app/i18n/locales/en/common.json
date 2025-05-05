@@ -1,0 +1,29 @@
+{
+  "title": "PDF Merge",
+  "description": "Merge multiple PDF files into one document online",
+  "upload": {
+    "drag": "Drag & drop PDF files here",
+    "click": "or click to select files",
+    "maxSize": "Maximum file size: 20MB",
+    "maxFiles": "Maximum 10 files",
+    "supported": "Supported format: PDF"
+  },
+  "list": {
+    "title": "Uploaded PDF files",
+    "reorder": "Change file order",
+    "remove": "Remove file"
+  },
+  "merge": {
+    "button": "Merge PDFs",
+    "processing": "Processing...",
+    "currentFile": "Processing: {{fileName}}",
+    "success": "PDF merge completed!",
+    "error": "Error occurred during PDF merge"
+  },
+  "errors": {
+    "noFiles": "Please select PDF files to merge",
+    "tooManyFiles": "Maximum 10 files allowed",
+    "fileTooLarge": "File size exceeds 20MB limit",
+    "invalidType": "Only PDF files are supported"
+  }
+} 

@@ -1,0 +1,29 @@
+{
+  "title": "PDF 병합",
+  "description": "여러 PDF 파일을 하나의 문서로 온라인에서 병합",
+  "upload": {
+    "drag": "PDF 파일을 여기에 드래그 & 드롭하세요",
+    "click": "또는 클릭하여 파일 선택",
+    "maxSize": "최대 파일 크기: 20MB",
+    "maxFiles": "최대 10개 파일",
+    "supported": "지원 형식: PDF"
+  },
+  "list": {
+    "title": "업로드된 PDF 파일",
+    "reorder": "파일 순서 변경",
+    "remove": "파일 삭제"
+  },
+  "merge": {
+    "button": "PDF 병합하기",
+    "processing": "처리 중...",
+    "currentFile": "처리 중: {{fileName}}",
+    "success": "PDF 병합이 완료되었습니다!",
+    "error": "PDF 병합 중 오류가 발생했습니다"
+  },
+  "errors": {
+    "noFiles": "병합할 PDF 파일을 선택해주세요",
+    "tooManyFiles": "최대 10개 파일까지만 가능합니다",
+    "fileTooLarge": "파일 크기가 20MB를 초과합니다",
+    "invalidType": "PDF 파일만 지원합니다"
+  }
+} 
