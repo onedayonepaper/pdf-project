@@ -1,7 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useTranslation } from '@/app/i18n/client'
+import { getI18n, createUseTranslation } from '@/app/i18n/client'
+import { DndProvider } from 'react-dnd'
+import { HTML5Backend } from 'react-dnd-html5-backend'
+import { TouchBackend } from 'react-dnd-touch-backend'
 import PDFUploader from '@/components/PDFUploader'
 import PDFList from '@/components/PDFList'
 import PDFMergerClient from '@/components/PDFMergerClient'
@@ -16,20 +19,29 @@ interface PDFItem {
 export default function Home() {
   const [files, setFiles] = useState<PDFItem[]>([])
   const [currentLang, setCurrentLang] = useState(fallbackLng)
-  const { t, i18n } = useTranslation()
+  const [ready, setReady] = useState(false)
+  const [tHook, setTHook] = useState<() => any>(() => () => ({ t: () => '', i18n: null }))
 
+  // i18n 초기화
   useEffect(() => {
-    // 브라우저의 기본 언어 설정 확인
+    getI18n(currentLang).then(i18n => {
+      setTHook(() => createUseTranslation(currentLang))
+      setReady(true)
+    })
+  }, [currentLang])
+
+  // 브라우저 언어 설정 확인
+  useEffect(() => {
     const browserLang = navigator.language.split('-')[0]
     if (languages.includes(browserLang)) {
       setCurrentLang(browserLang)
-      i18n.changeLanguage(browserLang)
     }
-  }, [i18n])
+  }, [])
+
+  const { t, i18n } = tHook()
 
   const handleLanguageChange = (lang: string) => {
     setCurrentLang(lang)
-    i18n.changeLanguage(lang)
   }
 
   const handleFilesSelected = (newFiles: File[]) => {
@@ -51,28 +63,42 @@ export default function Home() {
     setFiles(files.filter(file => file.id !== id))
   }
 
+  if (!ready) {
+    return (
+      <main className="min-h-screen p-4 md:p-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex justify-center items-center h-screen">
+            <div className="animate-pulse">Loading...</div>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
   return (
-    <main className="min-h-screen p-4 md:p-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold">{t('title')}</h1>
-          <LanguageSelector 
-            currentLang={currentLang} 
-            onLanguageChange={handleLanguageChange} 
-          />
+    <DndProvider backend={TouchBackend} options={{ enableMouseEvents: true }}>
+      <main className="min-h-screen p-4 md:p-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex justify-between items-center mb-8">
+            <h1 className="text-2xl font-bold" suppressHydrationWarning>{t('title')}</h1>
+            <LanguageSelector 
+              currentLang={currentLang} 
+              onLanguageChange={handleLanguageChange} 
+            />
+          </div>
+          
+          <div className="space-y-6">
+            <PDFUploader onFilesSelected={handleFilesSelected} t={t} />
+            <PDFList 
+              files={files} 
+              onReorder={handleReorder} 
+              onRemove={handleRemove} 
+              t={t} 
+            />
+            <PDFMergerClient files={files} lang={currentLang} />
+          </div>
         </div>
-        
-        <div className="space-y-6">
-          <PDFUploader onFilesSelected={handleFilesSelected} t={t} />
-          <PDFList 
-            files={files} 
-            onReorder={handleReorder} 
-            onRemove={handleRemove} 
-            t={t} 
-          />
-          <PDFMergerClient files={files} />
-        </div>
-      </div>
-    </main>
+      </main>
+    </DndProvider>
   )
 } 

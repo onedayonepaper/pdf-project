@@ -4,7 +4,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  basePath: '/pdf-project',
+  basePath: process.env.NODE_ENV === 'production' ? '/pdf-project' : '',
 }
 
 export default nextConfig 
