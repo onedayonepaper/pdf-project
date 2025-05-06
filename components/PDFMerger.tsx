@@ -6,11 +6,11 @@ import { HTML5Backend } from 'react-dnd-html5-backend'
 import { TouchBackend } from 'react-dnd-touch-backend'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
+import { getI18n, createUseTranslation } from '../app/i18n/client'
 import PDFUploader from './PDFUploader'
 import PDFList from './PDFList'
 import MergeButton from './MergeButton'
 import LanguageSelector from './LanguageSelector'
-import { useTranslation } from '../app/i18n/client'
 
 interface PDFItem {
   id: string
@@ -21,8 +21,9 @@ export default function PDFMerger() {
   const [files, setFiles] = useState<PDFItem[]>([])
   const [isTouchDevice, setIsTouchDevice] = useState(false)
   const [mounted, setMounted] = useState(false)
-  const [currentLang, setCurrentLang] = useState('ko')
-  const { t, i18n, ready } = useTranslation()
+  const [currentLang, setCurrentLang] = useState('en')
+  const [ready, setReady] = useState(false)
+  const [tHook, setTHook] = useState<() => any>(() => () => ({ t: () => '' }))
 
   useEffect(() => {
     setMounted(true)
@@ -36,9 +37,21 @@ export default function PDFMerger() {
     checkTouchDevice()
   }, [])
 
+  useEffect(() => {
+    getI18n(currentLang).then(i18n => {
+      setTHook(() => createUseTranslation(currentLang))
+      setReady(true)
+    })
+  }, [currentLang])
+
+  if (!mounted || !ready) {
+    return null
+  }
+
+  const { t } = tHook()
+
   const handleLanguageChange = (lang: string) => {
     setCurrentLang(lang)
-    i18n.changeLanguage(lang)
   }
 
   const handleFilesSelected = (newFiles: File[]) => {
@@ -64,35 +77,26 @@ export default function PDFMerger() {
     setFiles([])
   }
 
-  if (!mounted || !ready) {
-    return null
-  }
-
   return (
-    <div className="max-w-2xl mx-auto p-4">
-      <LanguageSelector 
-        currentLang={currentLang} 
-        onLanguageChange={handleLanguageChange} 
-      />
-      <h1 className="text-2xl font-bold mb-8 text-center transition-opacity duration-200">
-        {t('title')}
-      </h1>
-      <DndProvider backend={isTouchDevice ? TouchBackend : HTML5Backend}>
-        <div className="transition-opacity duration-200">
-          <PDFUploader onFilesSelected={handleFilesSelected} t={t} />
-          <PDFList
-            files={files}
-            onRemove={handleRemove}
-            onReorder={handleReorder}
-            t={t}
-          />
-          <MergeButton
-            files={files}
-            onMergeComplete={handleMergeComplete}
-            t={t}
-          />
-        </div>
-      </DndProvider>
+    <div className="max-w-4xl mx-auto p-4">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-2xl font-bold" suppressHydrationWarning>{t('title')}</h1>
+        <LanguageSelector 
+          currentLang={currentLang} 
+          onLanguageChange={handleLanguageChange} 
+        />
+      </div>
+      
+      <div className="space-y-6">
+        <PDFUploader onFilesSelected={handleFilesSelected} t={t} />
+        <PDFList 
+          files={files} 
+          onReorder={handleReorder} 
+          onRemove={handleRemove} 
+          t={t} 
+        />
+        <MergeButton files={files} lang={currentLang} onMergeComplete={handleMergeComplete} />
+      </div>
       <ToastContainer position="bottom-right" />
     </div>
   )

@@ -1,109 +1,107 @@
-import { useState, useCallback } from 'react'
+'use client'
+
+import { useState, useEffect } from 'react'
+import { getI18n, createUseTranslation } from '../app/i18n/client'
 import { PDFDocument } from 'pdf-lib'
 import { toast } from 'react-toastify'
 
-interface MergeButtonProps {
-  files: { id: string; file: File }[]
-  onMergeComplete: () => void
-  t: (key: string, options?: { [key: string]: string }) => string
+interface PDFItem {
+  id: string
+  file: File
 }
 
-export default function MergeButton({ files, onMergeComplete, t }: MergeButtonProps) {
+interface MergeButtonProps {
+  files: PDFItem[]
+  lang?: string
+  onMergeComplete?: () => void
+}
+
+export default function MergeButton({ files, lang = 'en', onMergeComplete }: MergeButtonProps) {
   const [isMerging, setIsMerging] = useState(false)
   const [progress, setProgress] = useState(0)
-  const [currentFile, setCurrentFile] = useState('')
+  const [ready, setReady] = useState(false)
+  const [tHook, setTHook] = useState<() => any>(() => () => ({ t: () => '' }))
 
-  const mergePDFs = useCallback(async () => {
-    if (files.length === 0) {
-      toast.error(t('errors.noFiles'))
-      return
-    }
+  useEffect(() => {
+    getI18n(lang).then(i18n => {
+      setTHook(() => createUseTranslation(lang))
+      setReady(true)
+    })
+  }, [lang])
+
+  if (!ready) return null
+  const { t } = tHook()
+
+  const mergePDFs = async () => {
+    if (files.length === 0) return
 
     setIsMerging(true)
     setProgress(0)
+
     try {
       const mergedPdf = await PDFDocument.create()
       const totalFiles = files.length
-      let totalPages = 0
-      let processedPages = 0
-      
-      // 전체 페이지 수 계산
-      for (const { file } of files) {
+
+      for (let i = 0; i < totalFiles; i++) {
+        const file = files[i].file
         const arrayBuffer = await file.arrayBuffer()
-        const pdfDoc = await PDFDocument.load(arrayBuffer)
-        totalPages += pdfDoc.getPageCount()
+        const pdf = await PDFDocument.load(arrayBuffer)
+        const pages = await mergedPdf.copyPages(pdf, pdf.getPageIndices())
+        pages.forEach(page => mergedPdf.addPage(page))
+        
+        setProgress(Math.round(((i + 1) / totalFiles) * 100))
       }
 
-      // 페이지별 병합 진행
-      for (let i = 0; i < files.length; i++) {
-        const { file } = files[i]
-        setCurrentFile(file.name)
-        
-        const arrayBuffer = await file.arrayBuffer()
-        const pdfDoc = await PDFDocument.load(arrayBuffer)
-        const pages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices())
-        
-        for (const page of pages) {
-          mergedPdf.addPage(page)
-          processedPages++
-          setProgress((processedPages / totalPages) * 100)
-        }
-      }
-
-      setProgress(100)
-      const mergedPdfBytes = await mergedPdf.save()
-      const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' })
+      const mergedPdfFile = await mergedPdf.save()
+      const blob = new Blob([mergedPdfFile], { type: 'application/pdf' })
       const url = URL.createObjectURL(blob)
       
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'merged.pdf'
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'merged.pdf'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
       URL.revokeObjectURL(url)
 
       toast.success(t('merge.success'))
-      onMergeComplete()
+      onMergeComplete?.()
     } catch (error) {
-      console.error('PDF 병합 중 오류 발생:', error)
+      console.error('PDF 병합 중 오류:', error)
       toast.error(t('merge.error'))
     } finally {
       setIsMerging(false)
       setProgress(0)
-      setCurrentFile('')
     }
-  }, [files, onMergeComplete, t])
+  }
 
   return (
-    <div className="mt-8">
-      {isMerging && (
-        <div className="mb-4">
-          <div className="flex justify-between mb-1">
-            <span className="text-sm font-medium text-gray-700">
-              {currentFile ? t('merge.currentFile', { fileName: currentFile }) : t('merge.processing')}
-            </span>
-            <span className="text-sm font-medium text-gray-700">{Math.round(progress)}%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2.5">
-            <div
-              className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-      )}
+    <div className="flex flex-col items-center space-y-4">
       <button
         onClick={mergePDFs}
         disabled={isMerging || files.length === 0}
-        className={`w-full py-3 px-4 rounded-lg font-medium text-white
+        className={`px-6 py-2 rounded-lg font-medium transition-colors
           ${isMerging || files.length === 0
-            ? 'bg-gray-400 cursor-not-allowed'
-            : 'bg-blue-600 hover:bg-blue-700'
+            ? 'bg-gray-300 cursor-not-allowed'
+            : 'bg-blue-500 hover:bg-blue-600 text-white'
           }`}
       >
         {isMerging ? t('merge.processing') : t('merge.button')}
       </button>
+
+      {isMerging && (
+        <div className="w-full max-w-md">
+          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-blue-500 transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <p className="text-sm text-gray-600 mt-2 text-center">
+            {t('merge.currentFile', { fileName: files[Math.floor(progress / 100 * files.length)]?.file.name })}
+          </p>
+        </div>
+      )}
     </div>
   )
 } 
