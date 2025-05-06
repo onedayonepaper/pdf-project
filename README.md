@@ -43,6 +43,11 @@ npm run dev
 npm run build
 ```
 
+## 배포
+
+이 프로젝트는 GitHub Pages를 통해 배포되어 있습니다.
+- 배포 URL: [https://onedayonepaper.github.io/pdf-project/](https://onedayonepaper.github.io/pdf-project/)
+
 ## 사용 방법
 
 1. PDF 파일을 드래그 앤 드롭하거나 클릭하여 선택
