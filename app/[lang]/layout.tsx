@@ -4,6 +4,7 @@ export async function generateStaticParams() {
   return languages.map((lng) => ({ lang: lng }))
 }
 
+
 export default function Layout({
   children,
   params: { lang }
