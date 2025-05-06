@@ -30,7 +30,7 @@ jobs:
 
       # 3) 의존성 설치 & 빌드
       - run: npm ci
-      - run: npm run build && npm run export     # ./out 생성
+      - run: npm run build     # next build만 실행
 
       # 4) Pages용 아티팩트 업로드
       - name: Upload artifact
