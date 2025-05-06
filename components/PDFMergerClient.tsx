@@ -1,114 +1,82 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { DndProvider } from 'react-dnd'
-import { HTML5Backend } from 'react-dnd-html5-backend'
-import { TouchBackend } from 'react-dnd-touch-backend'
-import { ToastContainer } from 'react-toastify'
-import 'react-toastify/dist/ReactToastify.css'
-import PDFUploader from './PDFUploader'
-import PDFList from './PDFList'
-import MergeButton from './MergeButton'
-import LanguageSelector from './LanguageSelector'
-import { I18nextProvider, useTranslation } from 'react-i18next'
-import { useRouter } from 'next/navigation'
-import { initI18n } from '@/app/i18n/client'
+import { useState } from 'react'
+import { PDFDocument } from 'pdf-lib'
+import { useTranslation } from '@/app/i18n/client'
+
+interface PDFItem {
+  id: string
+  file: File
+}
 
 interface PDFMergerClientProps {
-  lang: string
+  files: PDFItem[]
 }
 
-function PDFMergerContent({ lang }: PDFMergerClientProps) {
-  const [files, setFiles] = useState<{ id: string; file: File }[]>([])
-  const [isTouchDevice, setIsTouchDevice] = useState(false)
-  const [mounted, setMounted] = useState(false)
-  const { t, i18n } = useTranslation('common')
-  const router = useRouter()
+export default function PDFMergerClient({ files }: PDFMergerClientProps) {
+  const [isMerging, setIsMerging] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const { t } = useTranslation()
 
-  useEffect(() => {
-    setMounted(true)
-    const checkTouchDevice = () => {
-      setIsTouchDevice(
-        'ontouchstart' in window ||
-        navigator.maxTouchPoints > 0 ||
-        (navigator as any).msMaxTouchPoints > 0
-      )
+  const mergePDFs = async () => {
+    if (files.length === 0) return
+    setIsMerging(true)
+    setProgress(0)
+
+    try {
+      const mergedPdf = await PDFDocument.create()
+      const totalPages = files.length
+      let processedPages = 0
+
+      for (const item of files) {
+        const arrayBuffer = await item.file.arrayBuffer()
+        const pdfDoc = await PDFDocument.load(arrayBuffer)
+        const pages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices())
+        pages.forEach(page => mergedPdf.addPage(page))
+        
+        processedPages++
+        setProgress((processedPages / totalPages) * 100)
+      }
+
+      const mergedPdfBytes = await mergedPdf.save()
+      const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'merged.pdf'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error merging PDFs:', error)
+    } finally {
+      setIsMerging(false)
+      setProgress(0)
     }
-    checkTouchDevice()
-  }, [])
-
-  useEffect(() => {
-    if (i18n.language !== lang) {
-      i18n.changeLanguage(lang)
-    }
-  }, [lang, i18n])
-
-  const handleLanguageChange = (newLang: string) => {
-    i18n.changeLanguage(newLang)
-    router.push(`/${newLang}`)
   }
 
-  const handleFilesSelected = (newFiles: File[]) => {
-    const newFileItems = newFiles.map(file => ({
-      id: Math.random().toString(36).substr(2, 9),
-      file
-    }))
-    setFiles(prevFiles => [...prevFiles, ...newFileItems])
-  }
-
-  const handleRemoveFile = (id: string) => {
-    setFiles(prevFiles => prevFiles.filter(file => file.id !== id))
-  }
-
-  const handleReorder = (dragIndex: number, hoverIndex: number) => {
-    const draggedItem = files[dragIndex]
-    const newFiles = [...files]
-    newFiles.splice(dragIndex, 1)
-    newFiles.splice(hoverIndex, 0, draggedItem)
-    setFiles(newFiles)
-  }
-
-  const handleMergeComplete = () => {
-    setFiles([])
-  }
-
-  if (!mounted) {
-    return (
-      <div className="max-w-2xl mx-auto p-4">
-        <h1 className="text-2xl font-bold mb-8 text-center">PDF Merge</h1>
-      </div>
-    )
-  }
+  if (files.length === 0) return null
 
   return (
-    <>
-      <LanguageSelector currentLang={lang} onLanguageChange={handleLanguageChange} />
-      <h1 className="text-2xl font-bold mb-8 text-center">{t('title')}</h1>
-      <DndProvider backend={isTouchDevice ? TouchBackend : HTML5Backend}>
-        <PDFUploader onFilesSelected={handleFilesSelected} t={t} />
-        <PDFList
-          files={files}
-          onRemove={handleRemoveFile}
-          onReorder={handleReorder}
-          t={t}
-        />
-        <MergeButton
-          files={files}
-          onMergeComplete={handleMergeComplete}
-          t={t}
-        />
-      </DndProvider>
-      <ToastContainer position="bottom-right" />
-    </>
-  )
-}
-
-export default function PDFMergerClient({ lang }: PDFMergerClientProps) {
-  const i18n = initI18n(lang)
-
-  return (
-    <I18nextProvider i18n={i18n}>
-      <PDFMergerContent lang={lang} />
-    </I18nextProvider>
+    <div className="space-y-4">
+      <button
+        onClick={mergePDFs}
+        disabled={isMerging}
+        className="w-full py-2 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {isMerging ? t('merging') : t('merge')}
+      </button>
+      
+      {isMerging && (
+        <div className="w-full bg-gray-200 rounded-full h-2.5">
+          <div
+            className="bg-blue-500 h-2.5 rounded-full transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      )}
+    </div>
   )
 } 
